@@ -1,0 +1,77 @@
+---
+title: "Model's equation"
+author: "Butovens Médé"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+$$ Deviation_{ij} \sim N(\mu_{ij},\sigma) $$
+$$ u_{ij} = (\beta_0 + \gamma_{0j} ) + (\beta_1 + \gamma_{1j}) \cdot x_{1ij} + (\beta_2 + \gamma_{2j}) \cdot x_{2ij} + \beta_3 \cdot (x_{1ij} \cdot x_{2ij})$$
+
+ $$\beta_0 \sim N(0,20)$$
+ $$\beta_1 \sim N(0,10)$$
+ $$\beta_2 \sim N(0,10)$$
+ $$\sigma \sim N_+(0,50)$$ 
+$$\begin{pmatrix}
+\gamma_0 \\
+\gamma_1 \\
+\gamma_2
+\end{pmatrix}\sim N_3\left(\begin{pmatrix}
+0 \\
+0 \\
+0
+\end{pmatrix},\begin{pmatrix}
+\sigma_{\gamma0}^2 & \rho_\gamma\sigma_{\gamma0}\sigma_{\gamma1} & \rho_\gamma\sigma_{\gamma0}\sigma_{\gamma2}\\
+\rho_\gamma\sigma_{\gamma0}\sigma_{\gamma1} & \sigma_{\gamma1}^2 & \rho_\gamma\sigma_{\gamma1}\sigma_{\gamma2} \\
+\rho_\gamma\sigma_{\gamma0}\sigma_{\gamma2} &  \rho_\gamma\sigma_{\gamma1}\sigma_{\gamma2} & \sigma_{\gamma2}^2 
+\end{pmatrix}\right)$$
+
+$$\sigma_{\gamma0} \sim N_+(0,8)$$
+$$\sigma_{\gamma1} \sim N_+(0,5)$$
+$$\sigma_{\gamma2} \sim N_+(0,5)$$
+$$\rho \sim LKJ(2)$$
+
+* $i$ = indexes observations
+
+* $j$ = indexes subjects
+
+ 
+ 
+$$\sigma_{\omega1} \sim N_+(0,5)$$
+$$\zeta_{0i} \sim N(0, \sigma_{\zeta0})$$  
+$$\sigma_{\zeta0} \sim N_+(0,2)$$
+
+
+
+
+* $k$ = indexes labs
+
+$$ Deviation_{ij} \sim N(\mu_{ij},\sigma) $$
+$$ u_{ij} = (\beta_0 + \gamma_{0j} ) + (\beta_1 + \gamma_{1j}) \cdot Condition_{1ij} + (\beta_2 + \gamma_{2j}) \cdot Session_time_{2ij} + \beta_3 \cdot (x_{1ij} \cdot x_{2ij})$$
+
+ $$\beta_0 \sim N(0,1)$$
+ $$\beta_1 \sim N(0,1)$$
+ $$\beta_2 \sim N(0,1)$$
+ $$\sigma \sim t(0,1)$$ 
+ $$\begin{pmatrix}
+\gamma_0 \\
+\gamma_1 \\
+\gamma_2
+\end{pmatrix}\sim N_3\left(\begin{pmatrix}
+0 \\
+0 \\
+0
+\end{pmatrix},\begin{pmatrix}
+\sigma_{\gamma0}^2 & \rho_\gamma\sigma_{\gamma0}\sigma_{\gamma1} & \rho_\gamma\sigma_{\gamma0}\sigma_{\gamma2}\\
+\rho_\gamma\sigma_{\gamma0}\sigma_{\gamma1} & \sigma_{\gamma1}^2 & \rho_\gamma\sigma_{\gamma1}\sigma_{\gamma2} \\
+\rho_\gamma\sigma_{\gamma0}\sigma_{\gamma2} &  \rho_\gamma\sigma_{\gamma1}\sigma_{\gamma2} & \sigma_{\gamma2}^2 
+\end{pmatrix}\right)$$
+
+$$\sigma_{\gamma0} \sim N_+(0,8)$$
+* $i$ = indexes observations
+
+* $j$ = indexes subjects
