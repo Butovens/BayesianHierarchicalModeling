@@ -1,0 +1,733 @@
+---
+title: "Bayesian Hierarchical Modeling"
+author: "Butovens Médé"
+date: "4/14/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Import libraries
+library(tidyverse)
+library(skimr)
+library(dplyr)
+library(brms)
+library(lme4)
+library(tidybayes)
+library(broom)
+library(bayesplot)
+
+# Load data
+sing_data <- read_csv("~/Downloads/COGS-210-01/Final_project/SSAP_Raw_data_Task_1.csv")
+
+# Look at data 
+skim(sing_data) 
+```
+
+```{r}
+### Pivot data and create column for Pre and post 
+sing_long <- sing_data %>% 
+  pivot_longer(cols = PRE_S:POST_LC,
+               names_to = "Condition",
+               values_to = "Values") %>% 
+  mutate(Post = if_else(str_detect(Condition, pattern = "POST"), "POST", "PRE"),
+         Condition = case_when(str_detect(Condition, pattern = "_S") ~ "Sham",
+                               str_detect(Condition, pattern = "_V") ~ "Visual",
+                               str_detect(Condition, pattern = "_RC") ~ "RCereblm",
+                               TRUE ~ "LCereblm"))
+
+### Change variable to factor
+sing_long <- sing_long %>% 
+  mutate(Condition = factor(Condition),
+         Post =  as_factor(Post),
+         `Imitation 1` = factor(`Imitation 1`),
+         Interval = factor(Interval))
+
+
+### Rename Imitation column to subject  
+sing_long <- rename(sing_long, Subject = 'Imitation 1')
+
+
+### Check contrasts
+sing_long$Subject %>% contrasts()
+sing_long$Post %>% contrasts()
+sing_long$Condition %>% contrasts()
+
+### Change contrasts
+contrasts(sing_long$Post) <- c(-0.5,0.5)
+contrasts(sing_long$Condition) <- cbind(c(0.5, 0, -0.5, 0),
+                                        c(0, 0.5, -0.5, 0),
+                                        c(0, 0, -0.5, 5.0))
+
+
+
+summary(sing_long)
+
+####################
+
+### Plot per subject 
+  ggplot(sing_long %>% 
+           filter(Post == "PRE"), aes(x = Condition,
+                            y = abs(Values),
+                            color = Condition)) +
+    geom_point(position = position_jitter()) +
+    facet_wrap(~ Subject) +
+    # geom_smooth(method = "lm") +
+    # stat_summary(fun = "mean", colour = "red", size = 2, geom = "point") +
+      labs(title = "Absolute values of pitch-to-target difference for each condition per participants",
+           subtitle = "Pretest",
+         x = "Conditions",
+         y = "Absolute values of pitch-to-target difference") +
+    theme_bw() +
+    theme(text=element_text(size = 10)) +
+ scale_x_discrete(labels = c("LCereblm" = "LC", "RCereblm" = "RC", "Sham" = "S", "Visual" = "V")) +
+ scale_y_continuous(limits = c(0, 300)) +
+#  theme(aspect.ratio = .75) +
+ggsave("all_pre.png", width = 7, height= 4.51)
+
+#################
+
+ggplot(sing_long) +
+  stat_summary(aes(x = Condition,
+                   y = abs(Values)),
+                   fun.data = "mean_cl_boot", geom = "pointrange") +
+      facet_wrap(~ Post) +
+    # geom_point(aes(x = Condition,
+    #                y = abs(Values), color = Condition),
+    #            position = position_jitter(),
+    #            alpha = 0.5) +
+   labs(title = "Mean absolute value and sd of pitch-to-target difference for each condition",
+        subtitle = "Pre and Post test",
+       x = "Conditions",
+       y = "Absolute values of pitch-to-target difference") +
+  theme_bw() +
+  theme(text=element_text(size = 12))
+ggsave("wisk.png")
+
+
+
+sing_long$Values[which(sing_long$Post == "PRE")] %>% head()
+
+### Plot data pre vs post
+ggplot(data = sing_long,
+       mapping = aes(x = Condition,
+                     y = abs(Values),
+                     color = Condition)) +
+  geom_point(position = position_jitter()) +
+  facet_wrap(~ Post) +
+  stat_summary(fun = "mean", colour = "red", size = 2, geom = "point") +
+    labs(title = "Absolute values of pitch-to-target difference for each condition",
+       x = "Conditions",
+       y = "Absolute values of pitch-to-target difference") +
+  theme_bw() +
+  theme(text=element_text(size = 10)) 
+ggsave("pre.png")
+
+
+#################
+
+### Plot data pre vs post
+ggplot(data = sing_long,
+       mapping = aes(x = Condition,
+                     y = abs(Values),
+                     color = Condition)) +
+  geom_point(position = position_jitter()) +
+  facet_wrap(~ Post) +
+  stat_summary(fun = "mean", colour = "red", size = 2, geom = "point") +
+    labs(title = "Absolute values of pitch-to-target difference for each condition",
+       x = "Conditions",
+       y = "Absolute values of pitch-to-target difference") +
+  theme_bw() +
+  theme(text=element_text(size = 10))
+
+###################
+
+ggplot(sing_long %>% filter(Subject == "BMUCM_11"),
+       mapping = aes(x = Condition,
+                     y = abs(Values),
+                     color = Condition)) +
+  geom_point(position = position_jitter()) +
+  # stat_summary(fun = "mean", colour = "red", size = 2, geom = "point") +
+  facet_wrap(~ Post)
+
+
+### Plot data task 1
+ggplot(data = sing_data,
+       mapping = aes(x = abs(PRE_S),
+                     y = abs(POST_S))) +
+  geom_point() +
+  geom_smooth(aes(x = abs(PRE_S),y = abs(POST_S)), method = "lm", color = "black") +
+  geom_point(mapping = aes(x = abs(PRE_V),
+                     y = abs(POST_V)),
+             color = "blue") +
+  geom_smooth(aes(x = abs(PRE_V),y = abs(POST_V)), method = "lm") +
+  geom_point(mapping = aes(x = abs(PRE_RC),
+                     y = abs(POST_RC)),
+             color = "red") +
+  geom_smooth(aes(x = abs(PRE_RC),y = abs(POST_RC)), method = "lm", color = "red") +
+  geom_point(mapping = aes(x = abs(PRE_LC),
+                     y = abs(POST_LC)),
+             color = "green") +
+  geom_smooth(aes(x = abs(PRE_LC),y = abs(POST_LC)), method = "lm", color = "green") +
+  labs(title = "Absolute values of pitch-to-target difference: Pre Vs Post, Vocal",
+       x = "Absolute values of difference Pre-test",
+       y = "Absolute values of difference Post-test") +
+  theme_bw() +
+  theme(text=element_text(size = 12))
+coord_cartesian(ylim = c(0,200), xlim = c(0,200))
+
+sing_long %>% 
+  filter(Post == "PRE") %>% 
+  group_by(Condition) %>% 
+  summarize(n = n(), mean = mean(abs(Values)), sd = sd(abs(Values)))
+
+sing_long %>% 
+  filter(Post == "POST") %>% 
+  group_by(Condition) %>% 
+  summarize(n = n(), mean = mean(abs(Values), na.rm=TRUE), sd = sd(abs(Values), na.rm=TRUE))
+
+```
+
+#### Model Task 1 Prior Pred
+```{r}
+model_prior <- brm(Values ~ 1 + Condition + Post + Condition:Post + (1 + Condition + Post|Subject) + (1 | Interval),
+               data = sing_long,
+               family = gaussian(),
+               sample_prior = "only",
+               prior = c(prior(normal(0,20),class = Intercept),
+                         prior(normal(0,10),class = b),
+                         prior(normal(0,50),class = sigma),
+                         prior(normal(0,8),class = sd,coef = Intercept, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition1, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition2, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition3, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Post1, group = Subject),
+                         prior(normal(0,15), class = sd, coef = Intercept, group = Interval),
+                         prior(lkj(2),class = cor,group = Subject)))
+              # file = "model_prior")
+               # file = "model1_prior")
+
+
+
+### Get predicted samples to see the range of values the priors will support
+sing_long %>%
+  add_predicted_draws(model_prior, n=50) %>%
+  ggplot()+
+  geom_density(aes(x = .prediction, group = .draw), color = "lightblue")
+```
+
+#### Model Task 1 Fit
+```{r}
+model <- brm(Values ~ 1 + Condition + Post + Condition:Post + (1 + Condition + Post|Subject) + (1 | Interval),
+               data = sing_long,
+               family = gaussian(),
+               prior = c(prior(normal(0,20),class = Intercept),
+                         prior(normal(0,10),class = b),
+                         prior(normal(0,50),class = sigma),
+                         prior(normal(0,8),class = sd,coef = Intercept, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition1, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition2, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition3, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Post1, group = Subject),
+                         prior(normal(0,15), class = sd, coef = Intercept, group = Interval),
+                         prior(lkj(2),class = cor,group = Subject)),
+              iter = 8000,
+              warmup = 2000,
+              cores = 4,
+              file = "model") 
+              # file = "model1")
+
+
+#### Model with halfcauchy 
+model <- brm(Values ~ 1 + Condition + Post + Condition:Post + (1 + Condition + Post|Subject) + (1 | Interval),
+               data = sing_long,
+               family = gaussian(),
+               prior = c(prior(normal(0,20),class = Intercept),
+                         prior(normal(0,10),class = b),
+                         prior(normal(0,50),class = sigma),
+                         prior(normal(0,8),class = sd,coef = Intercept, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition1, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition2, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition3, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Post1, group = Subject),
+                         prior(normal(0,15), class = sd, coef = Intercept, group = Interval),
+                         prior(lkj(2),class = cor,group = Subject)),
+              iter = 8000,
+              warmup = 2000,
+              cores = 4)
+              # file = "model") 
+```
+
+#### Model 1 Diagnostic plot
+```{r}
+### Plot diagnostic plots
+plot(model)
+
+
+# plot(model1, pars = c("Condition", "Post")) 
+
+### Plot posterior
+mcmc_plot(model, type = "dens")
+
+```
+
+#### Model 1 Posterior predictive check
+```{r}
+# Posterior predictive
+pp_check(model, type = "dens_overlay", nsamples = 50)
+```
+#### Model 1 Summary
+```{r}
+### Summary
+summary(model)
+
+
+coef(model)
+```
+
+### Plot summary
+```{r}
+### Plot posterior distributions:
+posterior_voice <- as.matrix(model)
+
+mcmc_areas(posterior_voice,
+           pars = c(
+             "b_Intercept", "b_Condition1","b_Condition2", "b_Condition3", "b_Post1"), 
+                    # "b_Condition1:Post1","b_Condition2:Post1","b_Condition3:Post1"),
+           point_est = c("mean"),
+           prob = 0.95) +
+  labs(title = "Posterior distributions with means and 95% credibility intervals for voice imitation",
+         x = "Deviation (in cents)",
+         y = "Variables") +
+   theme(text=element_text(size = 10)) 
+ggsave("mcmc_post_voice.png")
+  
+```
+
+
+
+#### Construct summary table
+```{r}
+### Create data frame with needed values 
+df <- data.frame(Pop_Level_Effects = c("Intercept", "Condition1", "Condition2", "Condition3", "Post", "Condition1:Post", "Condition2:Post", "Condition3:Post"),
+           estimate = c(18.43, -10.90, -0.55, 1.04, 2.20, -4.70, -7.00, -0.37),
+           est_error = c(7.63, 3.89, 4.38, 0.81, 2.87, 5.56, 5.52, 0.96),
+           l_95_CI = c(2.37, -18.41, -9.19, -0.60, -3.50, -15.53, -17.77, -2.26),
+           u_95_CI = c(32.78, -3.04, 8.05, 2.66, 7.80, 6.07, 3.89, 1.50),
+           PSRF = c(1.00, 1.00, 1.00, 1.00, 1.01, 1.00, 1.00, 1.01))
+           
+          
+
+### Create table
+df %>% 
+  kableExtra::kbl(caption = "Summary table: Bayesian analysis for voice imitation") %>% 
+  kableExtra::kable_classic(full_width = F, html_font = "Times") %>% 
+  kableExtra::save_kable("tbl_voice.png") 
+```
+
+
+
+#### Model comparison
+```{r}
+### Run model with "interval" items for BF comparison
+model_brdg <-  brm(Values ~ 1 + Condition + Post + Condition:Post + (1 + Condition + Post|Subject) + (1 | Interval),
+               data = sing_long,
+               family = gaussian(),
+               prior = c(prior(normal(0,20),class = Intercept),
+                         prior(normal(0,10),class = b),
+                         prior(normal(0,50),class = sigma),
+                         prior(normal(0,8),class = sd,coef = Intercept, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition1, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition2, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition3, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Post1, group = Subject),
+                         prior(normal(0,15), class = sd, coef = Intercept, group = Interval),
+                         prior(lkj(2),class = cor,group = Subject)),
+              save_pars = save_pars(all = TRUE),
+              iter = 8000,
+              chains = 4,
+              warmup = 2000,
+              cores = 4)
+
+### Run model WITHOUT "interval" items for BF comparison
+model_o_brdg <-  brm(Values ~ 1 + Condition + Post + Condition:Post + (1 + Condition + Post|Subject),
+               data = sing_long,
+               family = gaussian(),
+               prior = c(prior(normal(0,20),class = Intercept),
+                         prior(normal(0,10),class = b),
+                         prior(normal(0,50),class = sigma),
+                         prior(normal(0,8),class = sd,coef = Intercept, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition1, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition2, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition3, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Post1, group = Subject),
+                         prior(lkj(2),class = cor,group = Subject)),
+              save_pars = save_pars(all = TRUE),
+              iter = 8000,
+              chains = 4,
+              warmup = 2000,
+              cores = 4)
+#### Run model with "interval" items for BF comparison (and cauchy dist)
+model_cau_brdg <-  brm(Values ~ 1 + Condition + Post + Condition:Post + (1 + Condition + Post|Subject) + (1 | Interval),
+               data = sing_long,
+               family = gaussian(),
+               prior = c(prior(normal(0,20),class = Intercept),
+                         prior(normal(0,10),class = b),
+                         prior(cauchy(0,10),class = sigma),
+                         prior(normal(0,8),class = sd,coef = Intercept, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition1, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition2, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Condition3, group = Subject),
+                         prior(normal(0,5),class = sd,coef = Post1, group = Subject),
+                         prior(normal(0,15), class = sd, coef = Intercept, group = Interval),
+                         prior(lkj(2),class = cor,group = Subject)),
+              save_pars = save_pars(all = TRUE),
+              iter = 8000,
+              chains = 4,
+              warmup = 2000,
+              cores = 4)
+
+### Compute marginal log likelihood for the two models
+margLoglik_mod <- bridge_sampler(model_brdg, silent = T)
+margLoglik_mod_o <- bridge_sampler(model_o_brdg, silent = T)
+margLoglik_mod_cau <- bridge_sampler(model_cau_brdg, silent = T)
+
+bayes_factor(margLoglik_mod, margLoglik_mod_o)
+bayes_factor(margLoglik_mod, margLoglik_mod_cau)
+```
+
+### Task 2
+```{r}
+### Load data Task 2
+sing_data2 <- read_csv("~/Downloads/COGS-210-01/Final_project/SSAP_Raw_data_Task2.csv")
+
+### Skim data
+skim(sing_data2)
+
+sing_long2 <- sing_data2 %>% 
+  pivot_longer(cols = PRE_S:POST_LC,
+               names_to = "Condition",
+               values_to = "Values") %>% 
+  mutate(Post = if_else(str_detect(Condition, pattern = "POST"), "POST", "PRE"),
+         Condition = case_when(str_detect(Condition, pattern = "_S") ~ "Sham",
+                               str_detect(Condition, pattern = "_V") ~ "Visual",
+                               str_detect(Condition, pattern = "_RC") ~ "RCereblm",
+                               TRUE ~ "LCereblm"))
+
+### Change variable to factor
+sing_long2 <- sing_long2 %>% 
+  mutate(Condition = factor(Condition),
+         Post =  as_factor(Post),
+         `Imitation 2` = factor(`Imitation 2`),
+         Interval = factor(Interval))
+
+
+### Rename Imitation column to subject  
+sing_long2 <- rename(sing_long2, Subject = 'Imitation 2')
+
+
+### Check contrasts
+sing_long2$Subject %>% contrasts()
+sing_long2$Post %>% contrasts()
+sing_long2$Condition %>% contrasts()
+
+### Change contrasts
+contrasts(sing_long2$Post) <- c(-0.5,0.5)
+contrasts(sing_long2$Condition) <- cbind(c(0.5, 0, -0.5, 0),
+                                        c(0, 0.5, -0.5, 0),
+                                        c(0, 0, -0.5, 5.0))
+
+
+
+summary(sing_long2)
+```
+
+
+#### Plot task 2
+```{r}
+####################
+
+### Plot per subject 
+  ggplot(sing_long2 %>% 
+           filter(Post == "POST"), aes(x = Condition,
+                            y = abs(Values),
+                            color = Condition)) +
+    geom_point(position = position_jitter()) +
+    facet_wrap(~ Subject) +
+    # geom_smooth(method = "lm") +
+    # stat_summary(fun = "mean", colour = "red", size = 2, geom = "point") +
+      labs(title = "Absolute values of pitch-to-target difference for each condition per participants",
+           subtitle = "Posttest (Piano Imitation)",
+         x = "Conditions",
+         y = "Absolute values of pitch-to-target difference") +
+    theme_bw() +
+    theme(text=element_text(size = 10)) +
+ scale_x_discrete(labels = c("LCereblm" = "LC", "RCereblm" = "RC", "Sham" = "S", "Visual" = "V")) +
+ scale_y_continuous(limits = c(0, 300)) +
+#  theme(aspect.ratio = .75) +
+ggsave("all_post_p.png", width = 7, height= 4.51)
+
+#################
+
+ggplot(sing_long2) +
+  stat_summary(aes(x = Condition,
+                   y = abs(Values)),
+                   fun.data = "mean_cl_boot", geom = "pointrange") +
+      facet_wrap(~ Post) +
+    # geom_point(aes(x = Condition,
+    #                y = abs(Values), color = Condition),
+    #            position = position_jitter(),
+    #            alpha = 0.5) +
+   labs(title = "Mean absolute value and sd of pitch-to-target difference for each condition 
+        \ in piano imitation",
+        subtitle = "Pre and Post test",
+       x = "Conditions",
+       y = "Absolute values of pitch-to-target difference") +
+  theme_bw() +
+  theme(text=element_text(size = 12))
+ggsave("wisk_p.png")
+
+### Plot data pre vs post
+ggplot(data = sing_long2,
+       mapping = aes(x = Condition,
+                     y = abs(Values),
+                     color = Condition)) +
+  geom_point(position = position_jitter()) +
+  facet_wrap(~ Post) +
+  stat_summary(fun = "mean", colour = "red", size = 2, geom = "point") +
+    labs(title = "Absolute values of pitch-to-target difference for each condition in piano imitation",
+       x = "Conditions",
+       y = "Absolute values of pitch-to-target difference") +
+  theme_bw() +
+  theme(text=element_text(size = 10)) 
+ggsave("pre_p.png")
+
+###########################################################################
+# Boxplot
+ggplot(sing_long2,
+       aes(x = Condition,
+           y = abs(Values),
+           fill = Condition)) +
+  geom_boxplot(outlier.shape = 1) +
+  facet_grid(. ~ Post) +
+  # The legend name ("Group") seems superfluous, so suppress it;
+  # the default colours contain red and green, which can be hard to
+  #  distinguish for some people.
+  scale_fill_brewer(name = element_blank(), type = "qual") +
+  # I prefer the black and white look to the default grey one.
+  theme_bw() +
+  # Put the legend at the bottom rather than on the right
+  theme(legend.position = "bottom")
+
+
+### Plot single participant
+ggplot(sing_long2 %>% filter(Subject == "BMUCM_11"),
+       mapping = aes(x = Condition,
+                     y = abs(Values),
+                     color = Condition)) +
+  geom_point(position = position_jitter()) +
+  # stat_summary(fun = "mean", colour = "red", size = 2, geom = "point") +
+  facet_wrap(~ Post)
+
+```
+
+#### Model Task 2 Prior Pred
+```{r}
+model2_prior <- brm(Values ~ 1 + Condition + Post + Condition:Post + (1 + Condition + Post|Subject) + (1 | Interval),
+               data = sing_long2,
+               family = gaussian(),
+               sample_prior = "only",
+               prior = c(prior(normal(0,40),class = Intercept),
+                         prior(normal(0,20),class = b),
+                         prior(normal(0,100),class = sigma), # tried cauchy dist.
+                         prior(normal(0,16),class = sd,coef = Intercept, group = Subject),
+                         prior(normal(0,10),class = sd,coef = Condition1, group = Subject),
+                         prior(normal(0,10),class = sd,coef = Condition2, group = Subject),
+                         prior(normal(0,10),class = sd,coef = Condition3, group = Subject),
+                         prior(normal(0,10),class = sd,coef = Post1, group = Subject),
+                         prior(normal(0,30), class = sd, coef = Intercept, group = Interval),
+                         prior(lkj(2),class = cor,group = Subject)))
+              # file = "model_prior")
+               # file = "model1_prior")
+
+
+
+### Get predicted samples to see the range of values the priors will support
+sing_long2 %>%
+  add_predicted_draws(model2_prior, n=50) %>%
+  ggplot()+
+  geom_density(aes(x = .prediction, group = .draw), color = "lightblue")
+
+```
+### Model 2 Fit
+```{r}
+model2 <- brm(Values ~ 1 + Condition + Post + Condition:Post + (1 + Condition + Post|Subject) + (1 | Interval),
+               data = sing_long2,
+               family = gaussian(),
+               prior = c(prior(normal(0,40),class = Intercept),
+                         prior(normal(0,20),class = b),
+                         prior(normal(0,100),class = sigma),
+                         prior(normal(0,16),class = sd,coef = Intercept, group = Subject),
+                         prior(normal(0,10),class = sd,coef = Condition1, group = Subject),
+                         prior(normal(0,10),class = sd,coef = Condition2, group = Subject),
+                         prior(normal(0,10),class = sd,coef = Condition3, group = Subject),
+                         prior(normal(0,10),class = sd,coef = Post1, group = Subject),
+                         prior(normal(0,30), class = sd, coef = Intercept, group = Interval),
+                         prior(lkj(2),class = cor,group = Subject)),
+              iter = 8000,
+              warmup = 2000,
+              cores = 4,
+             file = "model2")
+
+```
+
+
+
+
+
+
+
+### Model 2 Posterior predictive check
+```{r}
+# Posterior predictive
+pp_check(model2, type = "dens_overlay", nsamples = 50)
+```
+
+#### Model 2 Summary
+```{r}
+### Summary
+summary(model2)
+```
+
+### Plot summary  2
+```{r}
+### Plot posterior distributions:
+posterior_piano <- as.matrix(model2)
+
+mcmc_areas(posterior_piano,
+           pars = c(
+             "b_Intercept", "b_Condition1","b_Condition2", "b_Condition3", "b_Post1"), 
+                    # "b_Condition1:Post1","b_Condition2:Post1","b_Condition3:Post1"),
+           point_est = c("mean"),
+           prob = 0.95) +
+  labs(title = "Posterior distributions with means and 95% credibility intervals for piano imitation",
+         x = "Deviation (in cents)",
+         y = "Variables") +
+   theme(text=element_text(size = 10)) 
+ggsave("mcmc_post_piano.png")
+  
+```
+
+##### Create summary table
+```{r}
+### Create data frame with needed values 
+df2 <- data.frame(Pop_Level_Effects = c("Intercept", "Condition1", "Condition2", "Condition3", "Post", "Condition1:Post", "Condition2:Post", "Condition3:Post"),
+           estimate = c(15.11, -8.37, 1.52, -0.51, 2.12, 15.28, -11.03, 0.38),
+           est_error = c(8.88, 6.33, 6.38, 1.00, 4.45, 10.36, 10.32, 1.71),
+           l_95_CI = c(-2.97, -20.78, -11.12, -2.49, -6.54, -5.03, -31.60, -2.94),
+           u_95_CI = c(32.24, 4.05, 14.07, 1.45, 10.85, 35.79, 9.15, 3.73),
+           PSRF = c(1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00))
+           
+          
+
+### Create table
+df2 %>% 
+  kableExtra::kbl(caption = "Summary table Bayesian analysis for piano imitation") %>% 
+  kableExtra::kable_classic(full_width = F, html_font = "Times")
+```
+
+
+```{r}
+
+### Plot data task 2
+ggplot(data = sing_data2, 
+       mapping = aes(x = abs(PRE_S), 
+                     y = abs(POST_S))) +
+  geom_point() +
+  geom_smooth(aes(x = abs(PRE_S),y = abs(POST_S)), method = "lm", color = "black") +
+  geom_point(mapping = aes(x = abs(PRE_V), 
+                     y = abs(POST_V)),
+             color = "blue") +
+  geom_smooth(aes(x = abs(PRE_V),y = abs(POST_V)), method = "lm") +
+  geom_point(mapping = aes(x = abs(PRE_RC), 
+                     y = abs(POST_RC)),
+             color = "red") +
+  geom_smooth(aes(x = abs(PRE_RC),y = abs(POST_RC)), method = "lm", color = "red") +
+  geom_point(mapping = aes(x = abs(PRE_LC), 
+                     y = abs(POST_LC)),
+             color = "green") +
+  geom_smooth(aes(x = abs(PRE_LC),y = abs(POST_LC)), method = "lm", color = "green") +
+   labs(title = "Absolute values of pitch-to-target difference: Pre Vs Post, Piano",
+       x = "Absolute values of difference Pre-test",
+       y = "Absolute values of difference Post-test") +
+  theme_bw() +
+  theme(text=element_text(size = 12)) 
+  # coord_cartesian(ylim = c(0,200), xlim = c(0,200))
+
+```
+
+```{r}
+sd_fil <- sing_data %>% 
+  filter(abs(PRE_LC) < 200,
+         abs(POST_LC) < 200,
+         abs(PRE_S) < 200,
+         abs(POST_S) < 200,
+         abs(PRE_RC) < 200,
+         abs(POST_RC) < 200,
+         abs(PRE_V) < 200,
+         abs(POST_V) < 200)
+
+ggplot(data = sd_fil, 
+       mapping = aes(x = abs(PRE_S), 
+                     y = abs(POST_S))) +
+    geom_point() +
+  geom_smooth(aes(x = abs(PRE_S),y = abs(POST_S)), method = "lm", color = "black") +
+  geom_point(mapping = aes(x = abs(PRE_V), 
+                     y = abs(POST_V)),
+             color = "blue") +
+  geom_smooth(aes(x = abs(PRE_V),y = abs(POST_V)), method = "lm", color = "blue") +
+  geom_point(mapping = aes(x = abs(PRE_LC), 
+                     y = abs(POST_LC)),
+             color = "red") +
+  geom_smooth(aes(x = abs(PRE_LC),y = abs(POST_LC)), method = "lm", color = "red") +
+  geom_point(mapping = aes(x = abs(PRE_RC), 
+                     y = abs(POST_RC)),
+             color = "green") +
+  geom_smooth(aes(x = abs(PRE_RC),y = abs(POST_RC)), method = "lm", color = "green") 
+```
+
+```{r}
+sd_fil2 <- sing_data2 %>% 
+  filter(abs(PRE_LC) < 200,
+         abs(POST_LC) < 200,
+         abs(PRE_S) < 200,
+         abs(POST_S) < 200,
+         abs(PRE_RC) < 200,
+         abs(POST_RC) < 200,
+         abs(PRE_V) < 200,
+         abs(POST_V) < 200)
+
+ggplot(data = sd_fil2, 
+       mapping = aes(x = abs(PRE_S), 
+                     y = abs(POST_S))) +
+    geom_point() +
+  geom_smooth(aes(x = abs(PRE_S),y = abs(POST_S)), method = "lm", color = "black") +
+  geom_point(mapping = aes(x = abs(PRE_V), 
+                     y = abs(POST_V)),
+             color = "blue") +
+  geom_smooth(aes(x = abs(PRE_V),y = abs(POST_V)), method = "lm", color = "blue") +
+  geom_point(mapping = aes(x = abs(PRE_LC), 
+                     y = abs(POST_LC)),
+             color = "red") +
+  geom_smooth(aes(x = abs(PRE_LC),y = abs(POST_LC)), method = "lm", color = "red") +
+  geom_point(mapping = aes(x = abs(PRE_RC), 
+                     y = abs(POST_RC)),
+             color = "green") +
+  geom_smooth(aes(x = abs(PRE_RC),y = abs(POST_RC)), method = "lm", color = "green") 
+```
+```{r}
+summary(sd_fil2$PRE_C)
+```
+
+
