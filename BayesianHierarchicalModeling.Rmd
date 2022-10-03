@@ -19,7 +19,7 @@ library(broom)
 library(bayesplot)
 
 # Load data
-sing_data <- read_csv("~/Downloads/COGS-210-01/Final_project/SSAP_Raw_data_Task_1.csv")
+sing_data <- read_csv(file.choose()) # choose SSAP_Vocal_Imitation.csv file 
 
 # Look at data 
 skim(sing_data) 
@@ -400,7 +400,7 @@ bayes_factor(margLoglik_mod, margLoglik_mod_cau)
 ### Task 2
 ```{r}
 ### Load data Task 2
-sing_data2 <- read_csv("~/Downloads/COGS-210-01/Final_project/SSAP_Raw_data_Task2.csv")
+sing_data2 <- read_csv(file.choose()) # choose SSAP_Piano_Imitation.csv file 
 
 ### Skim data
 skim(sing_data2)
